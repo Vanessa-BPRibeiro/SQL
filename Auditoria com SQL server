@@ -1,1 +1,126 @@
+--criar as tabelas
+create table cliente (
+CPF varchar(15) null,
+NOME varchar(50) null,
+ENDERECO varchar (75) null
+)
 
+create table funcionario (
+MATRICULA varchar(15) null,
+NOME varchar(50) null,
+SEXO varchar (2) null
+)
+
+--consultas:
+select * from cliente
+select * from funcionario
+SELECT * FROM tb_auditoria01
+
+-- drops
+drop table cliente
+drop table tb_auditoria01
+
+drop trigger auditoria_insert
+drop trigger auditoria_update
+drop trigger auditoria_delete
+
+-- ações
+
+insert into cliente( cpf, nome, endereco) values ('123', 'vanessa', 'rua francisco p')
+insert into cliente( cpf, nome, endereco) values ('456', 'filipe', 'rua francisco p')
+insert into cliente( cpf, nome, endereco) values ('789', 'misael', 'rua francisco p')
+update cliente set nome = 'vanessa ribeiro' where cpf = '123'
+update cliente set nome = 'filipe ribeiro' where cpf = '456'
+update cliente set nome = 'misael cardoso' where cpf = '789'
+delete cliente where cpf  = '123'
+delete cliente where cpf  = '456'
+delete cliente where cpf  = '789'
+
+
+-- Criar uma tabela para registrar todas as ações realizadas nas tabelas do banco de dados.
+-- A solução deverá registrar o nome da tabela, o tipo de ação (INSERT, UPDATE OU DELETE),
+-- o usuário do banco de dados que realizou a ação, a data e hora da ação e também as
+-- informações inseridas / alteradas e/ou deletadas.
+
+-- PASSO 1 - Construir a tabela de auditoria:
+
+create table tb_auditoria01 (
+TABELA VARCHAR (40),
+ACAO VARCHAR (10),
+USUARIO VARCHAR (50),
+DATA_HORA DATETIME,
+ANTES VARCHAR (4000),
+DEPOIS VARCHAR (4000)
+)
+
+-- Passo 2 - construir uma trigger para cada ação (insert, update, delete)
+
+-- TRIGGER INSERT
+
+CREATE TRIGGER auditoria_insert
+ON dbo.cliente
+AFTER INSERT
+AS
+BEGIN
+declare @cpf varchar(15)
+declare @nome varchar(50)
+declare @endereco varchar(75)
+select
+@cpf = cpf,
+@nome = nome,
+@endereco = endereco
+from inserted
+insert into tb_auditoria01 (TABELA, ACAO, USUARIO, DATA_HORA, ANTES, DEPOIS)
+values ('cliente', 'INSERT', CURRENT_USER, GETDATE(), NULL, concat(@cpf, ' | ' ,@nome, ' | ', @endereco))
+END
+
+-- TRIGGER UPDATE 
+
+CREATE TRIGGER auditoria_update
+ON dbo.cliente
+AFTER UPDATE
+AS
+BEGIN
+
+declare @novo_cpf varchar(15)
+declare @novo_nome varchar(50)
+declare @novo_endereco varchar(75)
+select
+@novo_cpf = isnull(cpf,' '),
+@novo_nome = isnull(nome,' '),
+@novo_endereco = isnull(endereco,' ')
+from inserted
+
+declare @cpf varchar(15)
+declare @nome varchar(50)
+declare @endereco varchar(75)
+select
+@cpf = isnull(cpf,' '),
+@nome = isnull(nome,' '),
+@endereco = isnull(endereco,' ')
+from deleted
+
+insert into tb_auditoria01 (TABELA, ACAO, USUARIO, DATA_HORA, ANTES, DEPOIS)
+values ('cliente', 'UPDATE', CURRENT_USER, GETDATE(), concat(@cpf, ' | ' ,@nome, ' | ', @endereco), concat(@novo_cpf, ' | ' ,@novo_nome, ' | ', @novo_endereco))
+END
+
+-- TRIGGER DELETE
+
+CREATE TRIGGER auditoria_delete
+ON dbo.cliente
+AFTER DELETE
+AS
+BEGIN
+
+declare @novo_cpf varchar(15)
+declare @novo_nome varchar(50)
+declare @novo_endereco varchar(75)
+select
+@novo_cpf = cpf,
+@novo_nome = nome,
+@novo_endereco = endereco
+from deleted
+
+insert into tb_auditoria01 (TABELA, ACAO, USUARIO, DATA_HORA, ANTES, DEPOIS)
+values ('cliente', 'DELETE', CURRENT_USER, GETDATE(), concat(@novo_cpf, ' | ' ,@novo_nome, ' | ', @novo_endereco), NULL)
+END
